@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
-from typing import Any, Iterator, List
+from typing import Any, Dict, Iterator, List
 
 from crypto import asymetric, sharing, symetric
 from utils import bytes_2_int, int_2_bytes
@@ -39,18 +39,20 @@ _DEFAULT_PRIME = 2 ** 127 - 1  # 12th Mersenne Prime, 13th is 2**521 - 1
 
 @dataclass
 class Secret:
+    name: str
     symetric_locked: bytes
     min_keys: int
-    shared_keys: List[List[Key]]
+    shared_keys: Dict[int, List[Key]]
     prime: int = _DEFAULT_PRIME
     scrypt_cfg: symetric.ScryptCfg = symetric.ScryptCfg()
 
 
 @dataclass
 class Content:
+    name: str
     payload: str
-    shares: List[List[User]]
     min_shares: int
+    shares: Dict[int, List[User]]
 
 
 def decrypt_secret(secret: Secret, user: User, password: bytes) -> str:
@@ -58,7 +60,7 @@ def decrypt_secret(secret: Secret, user: User, password: bytes) -> str:
         position: bytes_2_int(
             asymetric.decrypt(key.asymetric_locked, user.private_key_bytes, password)
         )
-        for position, keys in enumerate(secret.shared_keys, start=1)
+        for position, keys in secret.shared_keys.items()
         for key in keys
         if key.user == user
     }
@@ -78,8 +80,8 @@ def encrypt_secret(content: Content, prime: int = _DEFAULT_PRIME) -> Secret:
     symetric_locked = symetric.encrypt(
         content.payload.encode(), int_2_bytes(secret_key), scrypt_cfg
     )
-    shared_keys = [
-        [
+    shared_keys = {
+        position: [
             Key(
                 user=user,
                 asymetric_locked=asymetric.encrypt(
@@ -88,9 +90,10 @@ def encrypt_secret(content: Content, prime: int = _DEFAULT_PRIME) -> Secret:
             )
             for user in users
         ]
-        for position, users in enumerate(content.shares, start=1)
-    ]
+        for position, users in content.shares.items()
+    }
     return Secret(
+        name=content.name,
         symetric_locked=symetric_locked,
         min_keys=min_keys,
         shared_keys=shared_keys,
@@ -102,8 +105,12 @@ def encrypt_secret(content: Content, prime: int = _DEFAULT_PRIME) -> Secret:
 @contextmanager
 def open_secret(secret: Secret, user: User, password: bytes) -> Iterator[Content]:
     content = Content(
+        name=secret.name,
         payload=decrypt_secret(secret, user, password),
-        shares=[[key.user for key in keys] for keys in secret.shared_keys],
+        shares={
+            position: [key.user for key in keys]
+            for position, keys in secret.shared_keys.items()
+        },
         min_shares=secret.min_keys,
     )
     yield content

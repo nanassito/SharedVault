@@ -1,6 +1,7 @@
 """This implement simple wrapping function to provide symetric encryption."""
+import json
 import os
-from base64 import urlsafe_b64encode
+from base64 import b64decode, b64encode, urlsafe_b64encode
 from dataclasses import dataclass
 from hashlib import scrypt
 
@@ -11,12 +12,35 @@ from utils import dataclass_to_dict
 
 @dataclass
 class ScryptCfg:
-    # TODO: Read up on how to strethen this.
+    # TODO: Read up on how to strengthen this.
     salt: bytes = os.urandom(16)
     n: int = 16384
     r: int = 8
     p: int = 1
     dklen: int = 32
+
+    @staticmethod
+    def from_json(raw: str) -> "ScryptCfg":
+        data = json.loads(raw)
+        return ScryptCfg(
+            salt=b64decode(data["salt"].encode()),
+            n=int(data["n"]),
+            r=int(data["r"]),
+            p=int(data["p"]),
+            dklen=int(data["dklen"]),
+        )
+
+    def to_json(self: "ScryptCfg") -> str:
+        return json.dumps(
+            {
+                "salt": b64encode(self.salt).decode(),
+                "n": self.n,
+                "r": self.r,
+                "p": self.p,
+                "dklen": self.dklen,
+            },
+            sort_keys=True,
+        )
 
 
 def _derive_key(secret: bytes, scrypt_cfg: ScryptCfg) -> bytes:

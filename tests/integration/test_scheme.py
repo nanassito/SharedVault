@@ -6,7 +6,9 @@ def test_new_secret():
     msg = "This is a very important and secret message."
     password = b"password"
     user = User.new("username", password)
-    original = Content(payload=msg, shares=[[user], [user], []], min_shares=2)
+    original = Content(
+        name="ct1", payload=msg, shares={1: [user], 2: [user], 3: []}, min_shares=2
+    )
     secret = encrypt_secret(original)
     with open_secret(secret, user, password) as content:
         assert content == original
@@ -18,7 +20,9 @@ def test_modify_secret():
     password = b"password"
     user = User.new("username", password)
     secret = encrypt_secret(
-        Content(payload=msg, shares=[[user], [user], []], min_shares=2)
+        Content(
+            name="ct1", payload=msg, shares={1: [user], 2: [user], 3: []}, min_shares=2
+        )
     )
     original_secret = deepcopy(secret)
     with open_secret(secret, user, password) as content:
