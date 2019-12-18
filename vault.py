@@ -1,44 +1,68 @@
 """Cli to store and manipulate `Secret`s and their `Content`."""
 
-from dataclasses import fields
-from itertools import chain
-from typing import Dict, List
+from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import Any, Dict, Iterator, List
 
 from sqlalchemy import Binary, Column, ForeignKey, Integer, String, Text, create_engine
-
-# from argparse_logging import add_logging_arguments
-from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, session, sessionmaker
 
-# from argparse import ArgumentParser
-from sqlalchemy.orm import relationship, sessionmaker
-from tabulate import tabulate
-
-import scheme
 import utils
-from crypto.symetric import ScryptCfg
+from crypto import asymetric, sharing, symetric
 
 Base = declarative_base()
+_DEFAULT_PRIME = 2 ** 127 - 1  # 12th Mersenne Prime, 13th is 2**521 - 1
 
 
-class UserDBO(Base):  # type: ignore
+@dataclass
+class Content:
+    name: str
+    payload: str
+    min_keys: int
+    total_keys: int
+    keys: List["Key"]
+
+
+class User(Base):  # type: ignore
     __tablename__ = "users"
 
     username = Column(String, primary_key=True)
     private_key_bytes = Column(Binary, nullable=False)
     public_key_bytes = Column(Binary, nullable=False)
 
+    keys: List["Key"]
+
+    def __eq__(self: "User", other: Any) -> bool:
+        if not isinstance(other, User):
+            return False
+        if self.username != other.username:
+            return False
+        self_public_key = asymetric.deserialize_public_key(self.public_key_bytes)
+        other_public_key = asymetric.deserialize_public_key(other.public_key_bytes)
+        if self_public_key.public_numbers() != other_public_key.public_numbers():
+            return False
+        return True
+
     @staticmethod
-    def from_User(user: scheme.User) -> "UserDBO":
-        return UserDBO(**utils.dataclass_to_dict(user))
+    def new(username: str, password: bytes) -> "User":
+        priv, pub = asymetric.new_key_pair(password)
+        return User(username=username, private_key_bytes=priv, public_key_bytes=pub)
 
-    def to_User(self: "UserDBO") -> scheme.User:
-        return scheme.User(
-            **{field.name: getattr(self, field.name) for field in fields(scheme.User)}
+    def change_password(self: "User", old_password: bytes, new_password: bytes) -> None:
+        keys_unlocked = asymetric.decrypt_batch(
+            [key.asymetric_locked for key in self.keys],
+            self.private_key_bytes,
+            old_password,
         )
+        new_priv, new_pub = asymetric.new_key_pair(new_password)
+        for key, unlocked in zip(self.keys, keys_unlocked):
+            key.asymetric_locked = asymetric.encrypt(unlocked, new_pub)
+        self.public_key_bytes = new_pub
+        self.private_key_bytes = new_priv
 
 
-class SecretDBO(Base):  # type: ignore
+class Secret(Base):  # type: ignore
     __tablename__ = "secrets"
 
     name = Column(String, primary_key=True, nullable=False)
@@ -48,116 +72,101 @@ class SecretDBO(Base):  # type: ignore
     prime = Column(Binary, nullable=False)
     scrypt_cfg_json = Column(Text, nullable=False)
 
+    shared_keys: List["Key"]
+
     @staticmethod
-    def from_Secret(secret: scheme.Secret) -> "SecretDBO":
-        return SecretDBO(
-            name=secret.name,
-            symetric_locked=secret.symetric_locked,
-            min_keys=secret.min_keys,
-            total_keys=len(secret.shared_keys),
-            prime=utils.int_2_bytes(secret.prime),
-            scrypt_cfg_json=secret.scrypt_cfg.to_json(),
-            keys=list(
-                chain(
-                    *[
-                        [KeyDBO.from_Key(secret, position, key) for key in keys]
-                        for position, keys in secret.shared_keys.items()
-                    ]
+    def new(content: Content) -> "Secret":
+        secret = Secret()
+        secret.encrypt(content)
+        return secret
+
+    def decrypt(self: "Secret", user: User, password: bytes) -> str:
+        if not self.symetric_locked:
+            return ""
+        keys: Dict[int, int] = {}
+        for key in self.shared_keys:
+            if key.position in keys:
+                continue
+            if key.user == user:
+                keys[key.position] = utils.bytes_2_int(
+                    asymetric.decrypt(
+                        key.asymetric_locked, user.private_key_bytes, password
+                    )
                 )
-            ),
+        assert (
+            len(keys) >= self.min_keys
+        ), f"Not enough keys to open this secret ({len(keys)} < {self.min_keys})."
+        secret_key = utils.int_2_bytes(
+            sharing.recover_from_shares(keys, utils.bytes_2_int(self.prime))
         )
+        return symetric.decrypt(
+            self.symetric_locked,
+            secret_key,
+            symetric.ScryptCfg.from_json(self.scrypt_cfg_json),
+        ).decode()
 
-    def to_Secret(self: "SecretDBO") -> scheme.Secret:
-        shared_keys: Dict[int, List[scheme.Key]] = {
-            position: [] for position in range(1, self.total_keys + 1)
-        }
-        for key in self.keys:
-            shared_keys[key.position].append(key.to_Key())
-        return scheme.Secret(
+    def encrypt(self: "Secret", content: Content) -> None:
+        key_positions = {k.position for k in content.keys}
+        assert (
+            content.min_keys <= len(key_positions) <= content.total_keys
+        ), f"{content.min_keys=} <= {len(key_positions)=} <= {content.total_keys=}"
+        assert 0 not in key_positions, "Can't have keys at position 0"
+        self.name = content.name
+        self.min_keys = content.min_keys
+        self.total_keys = content.total_keys
+        self.prime = utils.int_2_bytes(_DEFAULT_PRIME)
+        scrypt_cfg = symetric.ScryptCfg()
+        self.scrypt_cfg_json = scrypt_cfg.to_json()
+
+        secret_key, shares = sharing.create_shares(
+            self.min_keys, content.total_keys, utils.bytes_2_int(self.prime)
+        )
+        self.symetric_locked = symetric.encrypt(
+            content.payload.encode(), utils.int_2_bytes(secret_key), scrypt_cfg
+        )
+        self.shared_keys = content.keys
+        for key in self.shared_keys:
+            key.asymetric_locked = asymetric.encrypt(
+                utils.int_2_bytes(shares[key.position]), key.user.public_key_bytes
+            )
+
+    @contextmanager
+    def open(self: "Secret", user: User, password: bytes) -> Iterator[Content]:
+        content = Content(
             name=self.name,
-            symetric_locked=self.symetric_locked,
+            payload=self.decrypt(user, password),
+            keys=self.shared_keys,
             min_keys=self.min_keys,
-            shared_keys=dict(shared_keys),
-            prime=utils.bytes_2_int(self.prime),
-            scrypt_cfg=ScryptCfg.from_json(self.scrypt_cfg_json),
+            total_keys=self.total_keys,
         )
+        yield content
+        self.encrypt(content)
 
 
-class KeyDBO(Base):  # type: ignore
+class Key(Base):  # type: ignore
     __tablename__ = "keys"
 
-    position = Column(Integer, primary_key=True, nullable=False)
-    username = Column(ForeignKey("users.username"), primary_key=True, nullable=False)
-    secret_name = Column(ForeignKey("secrets.name"), primary_key=True, nullable=False)
+    id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+    position = Column(Integer, nullable=False)
+    username = Column(ForeignKey("users.username"), nullable=False)
+    secret_name = Column(ForeignKey("secrets.name"), nullable=False)
     asymetric_locked = Column(Binary, nullable=False)
 
-    user = relationship("UserDBO", back_populates="keys")
-    secret = relationship("SecretDBO", back_populates="keys")
+    user = relationship("User", back_populates="keys")
+    secret = relationship("Secret", back_populates="shared_keys")
 
     @staticmethod
-    def from_Key(secret: scheme.Secret, position: int, key: scheme.Key) -> "KeyDBO":
-        return KeyDBO(
-            position=position,
-            username=key.user.username,
-            secret_name=secret.name,
-            asymetric_locked=key.asymetric_locked,
-        )
-
-    def to_Key(self: "KeyDBO") -> scheme.Key:
-        assert (
-            self.user is not None
-        ), "Couldn't look up the user, the FK is probably messed up."
-        return scheme.Key(
-            user=self.user.to_User(), asymetric_locked=self.asymetric_locked
-        )
+    def new(position: int, user: User) -> "Key":
+        """Create a new Key for a new or existing Secret."""
+        assert position != 0, "Can't have keys at position 0."
+        return Key(position=position, user=user)
 
 
-UserDBO.keys = relationship("KeyDBO", back_populates="user")
-SecretDBO.keys = relationship("KeyDBO", back_populates="secret")
+User.keys = relationship("Key", back_populates="user")
+Secret.shared_keys = relationship("Key", back_populates="secret")
 
 
-# list_secrets
-# read_secret
-# update_secret
-# delete_secret
-# new_secret
-
-
-def list_users(db):
-    users = [user_dbo.to_User() for user_dbo in db.query(UserDBO).all()]
-    print(
-        tabulate(
-            headers=("Username",), tabular_data=[(user.username,) for user in users]
-        )
-    )
-
-
-# new_user
-# authorize_user
-# change_password
-
-
-# engine = create_engine("sqlite:///:memory:", echo=True)
-# Session = sessionmaker(bind=engine)
-# Base.metadata.create_all(engine)
-
-# u = scheme.User.new("dorian", b"password")
-# s1 = scheme.encrypt_secret(
-#     scheme.Content(
-#         name="my secret",
-#         payload="This is super secret.",
-#         min_shares=2,
-#         shares={1: [u], 2: [u], 3: []},
-#     )
-# )
-# session = Session()
-# session.add(UserDBO.from_User(u))
-# session.add(SecretDBO.from_Secret(s1))
-# session.commit()
-# s2 = session.query(SecretDBO).first().to_Secret()
-# print(
-#     {
-#         field.name: getattr(s1, field.name) == getattr(s2, field.name)
-#         for field in fields(scheme.Secret)
-#     }
-# )
+def get_db(connection_string: str) -> session.Session:
+    engine = create_engine(connection_string, echo=False)
+    Base.metadata.create_all(engine)
+    return sessionmaker(bind=engine, autoflush=False)()

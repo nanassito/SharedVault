@@ -1,5 +1,5 @@
 """This implement simple wrapping function to provide asymetric encryption."""
-from typing import Tuple
+from typing import List, Tuple
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.backends.openssl.rsa import _RSAPrivateKey, _RSAPublicKey
@@ -50,9 +50,15 @@ _PADDING = padding.OAEP(
 )
 
 
-def decrypt(secret: bytes, private_key_bytes: bytes, password: bytes) -> bytes:
+def decrypt_batch(
+    secrets: List[bytes], private_key_bytes: bytes, password: bytes
+) -> List[bytes]:
     private_key = deserialize_private_key(private_key_bytes, password)
-    return private_key.decrypt(secret, _PADDING)
+    return [private_key.decrypt(secret, _PADDING) for secret in secrets]
+
+
+def decrypt(secret: bytes, private_key_bytes: bytes, password: bytes) -> bytes:
+    return decrypt_batch([secret], private_key_bytes, password)[0]
 
 
 def encrypt(secret: bytes, public_key_bytes: bytes) -> bytes:
