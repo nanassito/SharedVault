@@ -142,6 +142,26 @@ class Secret(Base):  # type: ignore
         yield content
         self.encrypt(content)
 
+    def authorize_user(
+        self: "Secret", grantor: User, password: bytes, grantee: User
+    ) -> None:
+        new_keys = []
+        for key in self.shared_keys:
+            if key.user == grantor:
+                new_key = Key(
+                    user=grantee,
+                    secret=self,
+                    position=key.position,
+                    asymetric_locked=asymetric.encrypt(
+                        asymetric.decrypt(
+                            key.asymetric_locked, grantor.private_key_bytes, password
+                        ),
+                        grantee.public_key_bytes,
+                    ),
+                )
+                new_keys.append(new_key)
+        self.shared_keys += new_keys
+
 
 class Key(Base):  # type: ignore
     __tablename__ = "keys"

@@ -133,7 +133,19 @@ def new_user(db: session.Session, username: str, password: bytes) -> None:
     db.commit()
 
 
-# authorize_user
+@cli_args("grantee", help="Username to authorize reading the secret.")
+@cli_args("password", type=lambda x: x.encode(), help="Your password.")
+@cli_args("grantor", help="Your username.")
+@cli_args("secret_name", help="Name of the secret to grant access to.")
+def authorize_user(
+    db: session.Session, secret_name: str, grantor: str, password: bytes, grantee: str
+) -> None:
+    secret = db.query(vault.Secret).get(secret_name)
+    user = db.query(vault.User).get(grantor)
+    target = db.query(vault.User).get(grantee)
+    secret.authorize_user(user, password, target)
+    db.merge(secret)
+    db.commit()
 
 
 @cli_args("new_password", type=lambda x: x.encode(), help="New password of the user.")
@@ -159,12 +171,13 @@ def main():
     )
     subparsers = parser.add_subparsers()
     for function in (
+        authorize_user,
+        change_password,
         delete_secret,
         describe_secret,
         list_secrets,
         list_users,
         new_secret,
-        change_password,
         new_user,
         read_secret,
     ):
