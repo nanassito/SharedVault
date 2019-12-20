@@ -1,5 +1,6 @@
 """Cli to store and manipulate `Secret`s and their `Content`."""
 
+import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List
@@ -13,6 +14,7 @@ from crypto import asymetric, sharing, symetric
 
 Base = declarative_base()
 _DEFAULT_PRIME = 2 ** 127 - 1  # 12th Mersenne Prime, 13th is 2**521 - 1
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass
@@ -47,6 +49,7 @@ class User(Base):  # type: ignore
     @staticmethod
     def new(username: str, password: bytes) -> "User":
         priv, pub = asymetric.new_key_pair(password)
+        _LOG.debug(f"Creating new user {username} with public key {pub.decode()}")
         return User(username=username, private_key_bytes=priv, public_key_bytes=pub)
 
     def change_password(self: "User", old_password: bytes, new_password: bytes) -> None:
@@ -56,7 +59,9 @@ class User(Base):  # type: ignore
             old_password,
         )
         new_priv, new_pub = asymetric.new_key_pair(new_password)
+        _LOG.debug(f"Generated to key pair for {self.username}: {new_pub.decode()}")
         for key, unlocked in zip(self.keys, keys_unlocked):
+            _LOG.debug(f"Updating the key {key.position} in `{key.secret_name}`")
             key.asymetric_locked = asymetric.encrypt(unlocked, new_pub)
         self.public_key_bytes = new_pub
         self.private_key_bytes = new_priv
@@ -88,6 +93,7 @@ class Secret(Base):  # type: ignore
             if key.position in keys:
                 continue
             if key.user == user:
+                _LOG.debug(f"Unlocking key at position {key.position}")
                 keys[key.position] = utils.bytes_2_int(
                     asymetric.decrypt(
                         key.asymetric_locked, user.private_key_bytes, password
@@ -96,9 +102,11 @@ class Secret(Base):  # type: ignore
         assert (
             len(keys) >= self.min_keys
         ), f"Not enough keys to open this secret ({len(keys)} < {self.min_keys})."
+        _LOG.info(f"Recovering encryption key from {len(keys)} shares")
         secret_key = utils.int_2_bytes(
             sharing.recover_from_shares(keys, utils.bytes_2_int(self.prime))
         )
+        _LOG.info(f"Decrypting `{self.name}`")
         return symetric.decrypt(
             self.symetric_locked,
             secret_key,
@@ -115,20 +123,32 @@ class Secret(Base):  # type: ignore
         self.min_keys = content.min_keys
         self.total_keys = content.total_keys
         self.prime = utils.int_2_bytes(_DEFAULT_PRIME)
+        _LOG.info(
+            f"Creating a new scrypt configuration for the secret (including new salt)."
+        )
         scrypt_cfg = symetric.ScryptCfg()
         self.scrypt_cfg_json = scrypt_cfg.to_json()
 
-        secret_key, shares = sharing.create_shares(
-            self.min_keys, content.total_keys, utils.bytes_2_int(self.prime)
+        _LOG.info(
+            f"Generating new encryption key and associated {self.total_keys} "
+            f"shares with a minimum of {self.min_keys} shares needed for recovery."
         )
+        secret_key, shares = sharing.create_shares(
+            self.min_keys, self.total_keys, utils.bytes_2_int(self.prime)
+        )
+        _LOG.info("Encrypting the secret.")
         self.symetric_locked = symetric.encrypt(
             content.payload.encode(), utils.int_2_bytes(secret_key), scrypt_cfg
         )
         self.shared_keys = content.keys
         for key in self.shared_keys:
+            _LOG.debug(
+                f"Encrypting key {key.position} with {key.user.username}'s public key."
+            )
             key.asymetric_locked = asymetric.encrypt(
                 utils.int_2_bytes(shares[key.position]), key.user.public_key_bytes
             )
+        _LOG.info("Locked all keys for the secret")
 
     @contextmanager
     def open(self: "Secret", user: User, password: bytes) -> Iterator[Content]:
@@ -148,6 +168,9 @@ class Secret(Base):  # type: ignore
         new_keys = []
         for key in self.shared_keys:
             if key.user == grantor:
+                _LOG.debug(
+                    f"Encrypting key {key.position} with {grantee.username}'s public key."
+                )
                 new_key = Key(
                     user=grantee,
                     secret=self,
@@ -161,6 +184,10 @@ class Secret(Base):  # type: ignore
                 )
                 new_keys.append(new_key)
         self.shared_keys += new_keys
+        _LOG.info(
+            f"Authorized {grantee.username} to open {grantor.username}'s keys "
+            f"for {self.name}'"
+        )
 
 
 class Key(Base):  # type: ignore
@@ -186,7 +213,7 @@ User.keys = relationship("Key", back_populates="user")
 Secret.shared_keys = relationship("Key", back_populates="secret")
 
 
-def get_db(connection_string: str) -> session.Session:
-    engine = create_engine(connection_string, echo=False)
+def get_db(connection_string: str, show_sql: bool = False) -> session.Session:
+    engine = create_engine(connection_string, echo=show_sql)
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, autoflush=False)()

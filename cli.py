@@ -1,7 +1,17 @@
+"""Cli too to manipulate a vault databse.
+
+This allows you to create, list, modify, read, secrets and the users having holds on them.
+
+Note that all the parameters must be passed on the command line except for
+authentication information (username & password) which are read from stdin.
+"""
+
+import logging
 from argparse import ArgumentParser
 from collections import defaultdict
+from getpass import getpass
 from inspect import signature
-from typing import Callable, Dict, List, Set, TypeVar
+from typing import Callable, Dict, List, Set, Tuple, TypeVar
 
 from argparse_logging import add_logging_arguments
 from sqlalchemy.orm import session
@@ -10,6 +20,13 @@ from tabulate import tabulate
 import vault
 
 T = TypeVar("T")
+_LOG = logging.getLogger(__name__)
+
+
+def get_user_password() -> Tuple[str, bytes]:
+    username = input("Username: ")
+    password = getpass().encode()
+    return username, password
 
 
 def cli_args(*args, **kwargs) -> Callable:
@@ -43,6 +60,7 @@ def list_secrets(db: session.Session) -> None:
 @cli_args("name", help="Name of the secret.")
 def describe_secret(db: session.Session, name: str) -> None:
     secret = db.query(vault.Secret).get(name)
+    assert secret is not None, f"No secret found under the name `{name}`"
     print("Name:", secret.name)
     print("Minimum number of keys:", secret.min_keys)
     print("Total number of keys:", secret.total_keys)
@@ -61,29 +79,28 @@ def describe_secret(db: session.Session, name: str) -> None:
     )
 
 
-@cli_args("password", type=lambda x: x.encode(), help="Your password.")
-@cli_args("username", help="Your username.")
 @cli_args("name", help="Name of the secret.")
-def read_secret(db: session.Session, name: str, username: str, password: bytes) -> None:
+def read_secret(db: session.Session, name: str) -> None:
+    username, password = get_user_password()
     user = db.query(vault.User).get(username)
+    assert user is not None, f"No such user `{username}`"
     secret = db.query(vault.Secret).get(name)
+    assert secret is not None, f"No secret found under the name `{name}`"
     with secret.open(user, password) as content:
         print(content.payload)
 
 
-@cli_args("password", type=lambda x: x.encode(), help="Your password.")
-@cli_args("username", help="Your username.")
 @cli_args("name", help="Name of the secret.")
-def delete_secret(
-    db: session.Session, name: str, username: str, password: bytes
-) -> None:
-    user = db.query(vault.User).get(username)
+def delete_secret(db: session.Session, name: str) -> None:
     secret = db.query(vault.Secret).get(name)
-    secret.decrypt(user, password)
+    if secret is None:
+        _LOG.warning(f"Secret {name} doesn't exists.")
+        return
     for key in secret.shared_keys:
         db.delete(key)
     db.delete(secret)
     db.commit()
+    _LOG.info(f"Deleted secret {name}")
 
 
 @cli_args(
@@ -114,6 +131,7 @@ def new_secret(
     secret = vault.Secret.new(content)
     db.add(secret)
     db.commit()
+    _LOG.info(f"Secret {name} saved to the databse.")
 
 
 def list_users(db: session.Session) -> None:
@@ -125,36 +143,40 @@ def list_users(db: session.Session) -> None:
     )
 
 
-@cli_args("password", type=lambda x: x.encode(), help="Password of the user.")
-@cli_args("username", help="Name of the new user. Must be unique")
-def new_user(db: session.Session, username: str, password: bytes) -> None:
+def new_user(db: session.Session) -> None:
+    username, password = get_user_password()
     user = vault.User.new(username, password)
     db.add(user)
     db.commit()
+    _LOG.info(f"New user {username} saved to the databse.")
 
 
-@cli_args("grantee", help="Username to authorize reading the secret.")
-@cli_args("password", type=lambda x: x.encode(), help="Your password.")
-@cli_args("grantor", help="Your username.")
+@cli_args("grantee_username", help="Username to authorize reading the secret.")
 @cli_args("secret_name", help="Name of the secret to grant access to.")
 def authorize_user(
-    db: session.Session, secret_name: str, grantor: str, password: bytes, grantee: str
+    db: session.Session, secret_name: str, grantee_username: str
 ) -> None:
+    grantee = db.query(vault.User).get(grantee_username)
+    assert grantee is not None, f"Unknown user {grantee_username}"
+    grantor_username, password = get_user_password()
+    grantor = db.query(vault.User).get(grantor_username)
+    assert grantor is not None, f"Unknown user {grantor_username}"
     secret = db.query(vault.Secret).get(secret_name)
-    user = db.query(vault.User).get(grantor)
-    target = db.query(vault.User).get(grantee)
-    secret.authorize_user(user, password, target)
+    assert secret is not None, f"No secret found under the name `{secret_name}`"
+    secret.authorize_user(grantor, password, grantee)
     db.merge(secret)
     db.commit()
+    _LOG.info(
+        f"Authorization of {grantee_username} by {grantor_username} for "
+        f"`{secret_name}` saved to the database."
+    )
 
 
-@cli_args("new_password", type=lambda x: x.encode(), help="New password of the user.")
-@cli_args("old_password", type=lambda x: x.encode(), help="Old password of the user.")
-@cli_args("username", help="Name of the new user. Must be unique")
-def change_password(
-    db: session.Session, username: str, old_password: bytes, new_password: bytes
-) -> None:
+def change_password(db: session.Session) -> None:
+    username, old_password = get_user_password()
+    new_password = getpass("New password: ").encode()
     user = db.query(vault.User).get(username)
+    assert user is not None, f"Unknown user {username}"
     user.change_password(old_password, new_password)
     db.merge(user)
     db.commit()

@@ -1,4 +1,5 @@
 import pytest
+from cryptography.fernet import InvalidToken
 
 import vault
 
@@ -57,7 +58,7 @@ def test_new_secret():
                 payload="This is a very important and secret message.",
                 min_keys=2,
                 total_keys=3,
-                keys=[vault.Key.new(1, vault.User.new("u1", b"pass1")),],
+                keys=[vault.Key.new(1, vault.User.new("u1", b"pass1"))],
             ),
         ),
     ],
@@ -102,3 +103,78 @@ def test_store_secret():
     db.commit()
     with db.query(vault.Secret).get(secret_name).open(user, password) as data:
         assert data.payload == content.payload
+
+
+def test_change_password():
+    user = vault.User.new("username", b"pass1")
+    secret_name = "secret"
+    content = vault.Content(
+        name=secret_name,
+        payload="This is a very important and secret message.",
+        min_keys=2,
+        total_keys=3,
+        keys=[vault.Key.new(i, user) for i in range(1, 4)],
+    )
+    secret = vault.Secret.new(content)
+    user.change_password(b"pass1", b"pass2")
+    with secret.open(user, b"pass2") as data:
+        assert data.payload == content.payload
+
+
+def test_authorize_user():
+    user1 = vault.User.new("user1", b"pass1")
+    user2 = vault.User.new("user2", b"pass2")
+    secret_name = "secret"
+    original = vault.Content(
+        name=secret_name,
+        payload="This is a very important and secret message.",
+        min_keys=3,
+        total_keys=4,
+        keys=[
+            vault.Key.new(1, user1),
+            vault.Key.new(2, user1),
+            vault.Key.new(3, user2),
+            vault.Key.new(4, user2),
+        ],
+    )
+    secret = vault.Secret.new(original)
+    secret.authorize_user(user1, b"pass1", user2)
+    with secret.open(user2, b"pass2") as content:
+        assert content.payload == original.payload
+    with pytest.raises((ValueError, AssertionError, InvalidToken)):
+        with secret.open(user1, b"pass1"):
+            pass
+
+
+@pytest.mark.parametrize(
+    ("min_keys", "username", "password"),
+    [
+        (1, "user2", b"wrong_passwd"),  # Wrong password
+        (3, "user2", b"pass2"),  # Not enough shares
+        (2, "user0", b"pass0"),  # No shares at all
+    ],
+)
+def test_unlocking_failures(min_keys, username, password):
+    users = {
+        f"user{idx}": vault.User.new(f"user{idx}", f"pass{idx}".encode())
+        for idx in range(4)
+    }
+    secret_name = "secret"
+    original = vault.Content(
+        name=secret_name,
+        payload="This is a very important and secret message.",
+        min_keys=min_keys,
+        total_keys=6,
+        keys=[
+            vault.Key.new(1, users["user1"]),
+            vault.Key.new(2, users["user2"]),
+            vault.Key.new(3, users["user2"]),
+            vault.Key.new(4, users["user3"]),
+            vault.Key.new(5, users["user3"]),
+            vault.Key.new(6, users["user3"]),
+        ],
+    )
+    secret = vault.Secret.new(original)
+    with pytest.raises((ValueError, AssertionError, InvalidToken)):
+        with secret.open(username, password):
+            pass
