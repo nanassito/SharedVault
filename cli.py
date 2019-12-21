@@ -11,6 +11,7 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from getpass import getpass
 from inspect import signature
+from itertools import chain, combinations
 from typing import Callable, Dict, List, Set, Tuple, TypeVar
 
 from argparse_logging import add_logging_arguments
@@ -64,7 +65,7 @@ def describe_secret(db: session.Session, name: str) -> None:
     print("Name:", secret.name)
     print("Minimum number of keys:", secret.min_keys)
     print("Total number of keys:", secret.total_keys)
-    print("Key holders:")
+    print("\nKey holders:")
     key_owners: Dict[str, Set[str]] = defaultdict(set)
     for key in secret.shared_keys:
         key_owners[key.user.username].add(str(key.position))
@@ -75,6 +76,33 @@ def describe_secret(db: session.Session, name: str) -> None:
                 for username, positions in sorted(key_owners.items())
             ],
             headers="keys",
+        )
+    )
+    print("\nOpening sequences:")
+    sequences = []
+    for length in range(1, len(key_owners)):
+        for owners in combinations(key_owners, length):
+            if len(set(chain(*[key_owners[o] for o in owners]))) >= secret.min_keys:
+                sequences.append(set(sorted(owners)))
+    potential_duplicates = [s for s in sequences]
+    while potential_duplicates:
+        potential_duplicate = potential_duplicates.pop()
+        is_dup = False
+        for sequence in sequences:
+            if sequence != potential_duplicate and sequence.issubset(
+                potential_duplicate
+            ):
+                is_dup = True
+                break
+        if is_dup:
+            sequences.remove(potential_duplicate)
+    print(
+        "* "
+        + "\n* ".join(
+            [
+                ", ".join(sorted(o))
+                for o in sorted(sequences, key=lambda s: (len(s), sorted(s)))
+            ]
         )
     )
 
