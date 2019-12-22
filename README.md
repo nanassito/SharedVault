@@ -24,5 +24,7 @@ Everytime a secret is updated we generate a brand new set of keys for the new en
 
 I will add more ways to use this tool but right now there is a cli that you can run with:
 ```
-$ pipenv run python -m cli --help
+$ pipenv run python -m cli --db=$DB_CONN_STR --help
 ```
+
+Depending on the type of database you use, you might need additional dependencies. You can read more about the connection string format, available backends and additional dependencies at https://docs.sqlalchemy.org/en/13/core/engines.html.

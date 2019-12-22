@@ -5,16 +5,17 @@ verify_ssl = true
 
 [dev-packages]
 black = "*"
-
-[packages]
 flake8 = "*"
 mypy = "*"
-black = "*"
 pytest = "*"
-pytest-mock = "*"
 pytest-cov = "*"
-tabulate = "*"
+pytest-mock = "*"
+
+[packages]
+argparse_logging = "*"
 cryptography = "*"
+sqlalchemy = "*"
+tabulate = "*"
 
 [requires]
 python_version = "3.8"
