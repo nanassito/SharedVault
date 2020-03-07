@@ -1,6 +1,6 @@
 from itertools import combinations
 
-from crypto import asymetric, sharing, symetric
+from sharedvault.crypto import asymetric, sharing, symetric
 
 
 def test_sharing():

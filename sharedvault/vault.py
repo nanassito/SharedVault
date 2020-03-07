@@ -10,7 +10,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, session, sessionmaker
 
 import utils
-from crypto import asymetric, sharing, symetric
+from sharedvault.crypto import asymetric, sharing, symetric
 
 Base = declarative_base()
 _DEFAULT_PRIME = 2 ** 127 - 1  # 12th Mersenne Prime, 13th is 2**521 - 1
@@ -74,7 +74,7 @@ class Secret(Base):  # type: ignore
     symetric_locked = Column(Binary, nullable=False)
     min_keys = Column(Integer, nullable=False)
     total_keys = Column(Integer, nullable=False)
-    prime = Column(Binary, nullable=False)
+    prime = Column(Binary, nullable=False)  # Too big to be stored as a number
     scrypt_cfg_json = Column(Text, nullable=False)
 
     shared_keys: List["Key"]

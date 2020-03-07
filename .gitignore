@@ -4,3 +4,5 @@ __pycache__
 .vscode
 .coverage
 *.sqlite3
+*.egg-info
+dist/

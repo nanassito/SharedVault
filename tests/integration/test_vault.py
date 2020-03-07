@@ -1,7 +1,7 @@
 import pytest
 from cryptography.fernet import InvalidToken
 
-import vault
+from sharedvault import vault
 
 
 def test_new_secret():

@@ -18,7 +18,7 @@ from argparse_logging import add_logging_arguments
 from sqlalchemy.orm import session
 from tabulate import tabulate
 
-import vault
+from sharedvault import vault
 
 T = TypeVar("T")
 _LOG = logging.getLogger(__name__)
@@ -236,7 +236,8 @@ def main():
         for add_argument in getattr(function, "args", []):
             add_argument(subparser)
     args = parser.parse_args()
-    assert getattr(args, "method", False), "Need to specify what function to use."
+    if not getattr(args, "method", False):
+        parser.error("Need to specify what function to use.")
     args.method(
         **{param: getattr(args, param) for param in signature(args.method).parameters}
     )

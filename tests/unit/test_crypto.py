@@ -1,4 +1,4 @@
-from crypto import sharing, symetric
+from sharedvault.crypto import sharing, symetric
 
 
 def test_scrypt_cfg_serialization():
