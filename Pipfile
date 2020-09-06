@@ -10,6 +10,9 @@ mypy = "*"
 pytest = "*"
 pytest-cov = "*"
 pytest-mock = "*"
+requests = "*"
+urllib-ext = "*"
+twine = "*"
 
 [packages]
 argparse_logging = "*"

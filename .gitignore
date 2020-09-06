@@ -1,9 +1,10 @@
-__pycache__
-.coverage
-.mypy_cache
-.pytest_cache
 .vscode
-*.egg-info
-*.sqlite3
-dist/
 Pipfile.lock
+__pycache__/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+*.sqlite3
+.coverage
