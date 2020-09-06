@@ -1,8 +1,8 @@
-"""This implement simple wrapping function to provide symetric encryption."""
+f"""This implement simple wrapping function to provide symetric encryption."""
 import json
 import os
 from base64 import b64decode, b64encode, urlsafe_b64encode
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import scrypt
 
 from cryptography import fernet
@@ -13,7 +13,7 @@ from utils import dataclass_to_dict
 @dataclass
 class ScryptCfg:
     # TODO: Read up on how to strengthen this.
-    salt: bytes = os.urandom(16)
+    salt: bytes = field(default_factory=lambda: os.urandom(16))
     n: int = 16384
     r: int = 8
     p: int = 1
