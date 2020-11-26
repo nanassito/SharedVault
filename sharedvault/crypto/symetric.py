@@ -1,4 +1,4 @@
-f"""This implement simple wrapping function to provide symetric encryption."""
+"""This implement simple wrapping function to provide symetric encryption."""
 import json
 import os
 from base64 import b64decode, b64encode, urlsafe_b64encode
@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from hashlib import scrypt
 
 from cryptography import fernet
-
 from utils import dataclass_to_dict
 
 

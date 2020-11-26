@@ -138,7 +138,9 @@ def delete_secret(db: session.Session, name: str) -> None:
     help="Each key is a comma separated list of username that will hold that key.",
 )
 @cli_args(
-    "min_keys", type=int, help="Minimum number of keys required to open the secret.",
+    "min_keys",
+    type=int,
+    help="Minimum number of keys required to open the secret.",
 )
 @cli_args("payload", help="Content of the secret.")
 @cli_args("name", help="Name of the secret.")

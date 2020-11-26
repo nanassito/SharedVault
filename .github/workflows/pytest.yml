@@ -1,0 +1,24 @@
+name: pytest
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pyversion: [3.6, 3.7, 3.8, 3.9]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.pyversion }}
+      - name: Install pipenv
+        run: pip install pipenv
+      - name: Install dev dependencies
+        run: pipenv --python=$(which python${{ matrix.pyversion }}) update --dev
+      - name: run unit tests
+        run: pipenv run pytest

@@ -21,8 +21,7 @@ def _eval_at(poly, x, prime):
 
 
 def create_shares(minimum: int, total: int, prime: int) -> Tuple[int, Dict[int, int]]:
-    """Generates a random shamir pool, returns the secret and the share points.
-    """
+    """Generates a random shamir pool, returns the secret and the share points."""
     if minimum > total:
         raise ValueError("Pool secret would be irrecoverable.")
     rand_gen = random.SystemRandom()

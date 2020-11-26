@@ -124,7 +124,7 @@ class Secret(Base):  # type: ignore
         self.total_keys = content.total_keys
         self.prime = utils.int_2_bytes(_DEFAULT_PRIME)
         _LOG.info(
-            f"Creating a new scrypt configuration for the secret (including new salt)."
+            "Creating a new scrypt configuration for the secret (including new salt)."
         )
         scrypt_cfg = symetric.ScryptCfg()
         self.scrypt_cfg_json = scrypt_cfg.to_json()
