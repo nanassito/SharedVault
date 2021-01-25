@@ -8,3 +8,4 @@ build/
 .pytest_cache/
 *.sqlite3
 .coverage
+.venv
