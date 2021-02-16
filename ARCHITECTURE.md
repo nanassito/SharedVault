@@ -5,21 +5,30 @@ Disclaimer: This is a work in progress document for how the next generation of S
 
 The Vault is the file that contains the secrets as well as required data to access them. This is encoded as json.
 
-```json
+```jsonc
 {
     "secrets": {
-        <title>: {
-            "content": <base64 encoded binary data>,
-            "min_keys": <int>,
+        "...": {  // Title of the secret, this information is public
+            "content": "...",  // base64 encoded binary data,
+            "min_keys":  // int,
             "scrypt_cfg": {
-                "salt": <base64 encoded binary data>,
-                "n": <int=16384>,
-                "r": <int=8>,
-                "p": <int=1>,
-                "dklen": <int=32>,
+                "salt":  // base64 encoded binary data,
+                "n":  // int=16384,
+                "r":  // int=8,
+                "p":  // int=1,
+                "dklen":  // int=32,
             },
+            "keys": [
+                // The position in this array denotes the position of the key where `position = idx + 1`
+                {
+                    // KV pairs, the key is the username of the user owning the private key.
+                    // The value is the RSA encrypted value of the key.
+                    "...": "...",
+                },
+            ],
         }
-    }
+    },
+    "hosted_users"...
 }
 ```
 
