@@ -1,6 +1,10 @@
 # Usage behavior
 
 ```py
+from sharedvault import SharedVault
+from sharedvault.users import PasswordUser
+
+
 with SharedVault("path/to/vault.svlt") as vault:
     vault.users  # Dict of username to User
     vault.users["dorian"] = PasswordUser(password=b"drowssap")
