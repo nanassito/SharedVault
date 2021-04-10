@@ -19,12 +19,8 @@ The Vault is the file that contains the secrets as well as required data to acce
                 "dklen":  // int=32,
             },
             "keys": [
-                // The position in this array denotes the position of the key where `position = idx + 1`
-                {
-                    // KV pairs, the key is the username of the user owning the private key.
-                    // The value is the RSA encrypted value of the key.
-                    "...": "...",
-                },
+                # The index in this array maps to a position in the SSS algorithm. (position = index + 1)
+                "...",  # gpg encrypted value
             ],
         }
     },
@@ -32,8 +28,8 @@ The Vault is the file that contains the secrets as well as required data to acce
         // Every user must have an entry here, even if they manage their own keys.
         "...": {  // Username
             // Since we use Gpg, the private key can be embedded in here or it can be a shim pointing to a key card.
-            "gpg_public_pem": "...",
-            "gpg_private_pem": "...",
+            "gpg_armored_public": "...",
+            "gpg_armored_private": "...",
         }
     }
 }
