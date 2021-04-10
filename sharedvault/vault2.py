@@ -11,16 +11,16 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 UserName = NewType("UserName", str)
 SecretName = NewType("SecretName", str)
-PubKeyB64 = NewType("PubKeyB64", str)
-PrivKeyB64 = NewType("PrivKeyB64", str)
+PubKey = NewType("PubKey", str)  # Gpg armored pem
+PrivKey = NewType("PrivKey", str)  # Gpg armored pem
 SecretKey = NewType("SecretKey", str)
 
 
 @dataclass
 class User:
     secret_keys: Dict[SecretName, Dict[int, SecretKey]]
-    public_key_base64: PubKeyB64
-    private_key_base64: PrivKeyB64
+    public_key_armored_pem: PubKey
+    private_key_armored_pem: PrivKey
 
     @property
     def public_key(self: "User") -> _RSAPublicKey:

@@ -20,6 +20,7 @@ cryptography = "*"
 sqlalchemy = "*"
 tabulate = "*"
 pymysql = "*"
+gpg-lite = "*"
 
 [requires]
 python_version = "3.9"
