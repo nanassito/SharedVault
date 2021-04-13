@@ -13,13 +13,13 @@ pytest-mock = "*"
 requests = "*"
 urllib-ext = "*"
 twine = "*"
+ipython = "*"
 
 [packages]
 argparse_logging = "*"
 cryptography = "*"
-sqlalchemy = "*"
-tabulate = "*"
-pymysql = "*"
+primitize = "*"
+pgpy = "*"
 
 [requires]
 python_version = "3.9"
