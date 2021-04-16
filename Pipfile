@@ -20,6 +20,7 @@ argparse_logging = "*"
 cryptography = "*"
 primitize = "*"
 pgpy = "*"
+pycryptodome = "*"
 
 [requires]
 python_version = "3.9"
