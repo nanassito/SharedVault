@@ -21,7 +21,7 @@ async function applyVar(node, variable, value) {
 }
 
 
-function displayApp(){
+function displayApp() {
     Array.from(document.getElementsByClassName("splash")).forEach((elmt) => {
         elmt.hidden = true;
     });
@@ -35,18 +35,21 @@ async function openFile(file_id) {
     window.vault_file_id = file_id;
     displayApp();
     const response = await gapi.client.drive.files.get({fileId: file_id, alt: "media"})
-    window.VAULT = await SharedVault.prototype.fromJSON(JSON.parse(response.body));
+    const vault_json = JSON.parse(response.body);
+    window.VAULT_json = vault_json;  // DEBUG
+    window.VAULT = await SharedVault.prototype.fromJSON(vault_json);
+    await refreshVault();
 }
 
 
-async function updateFile(file_id, data) {
+async function saveFile(file_id, data) {
     return await gapi.client.request({
         path: "/upload/drive/v3/files/" + file_id,
         method: "PATCH",
         params: {
             uploadType: "media"
         },
-        body: data,
+        body: JSON.stringify(data),
     })
 }
 
@@ -58,15 +61,8 @@ async function createFile() {
         name: file_name + ".vault",
         mimeType: "application/json",
     })
-    await updateFile(
-        response.result.id,
-        JSON.stringify({users: [], secrets: {}}),
-    );
+    await saveFile(response.result.id, {users: [], secrets: {}});
     await openFile(response.result.id);
-}
-
-
-async function saveFile() {
 }
 
 
@@ -93,6 +89,59 @@ async function refreshFiles() {
             await openFile(event.toElement.dataset.fileId);
         });
     })
+}
+
+
+async function toggleUserLock(event) {
+    const user_id = event.toElement.dataset.userId;
+    if (event.toElement.dataset.state === "locked"){
+        try {
+            await VAULT.signIn(user_id, prompt("Password?", "Enter your passphrase."));
+        } catch(err) {
+            alert(err);
+            return;
+        }
+        event.toElement.dataset.state = "unlocked";
+    
+    } else {
+        await VAULT.signOut(user_id);
+        event.toElement.dataset.state = "locked";
+    }
+}
+
+
+async function refreshUsers() {
+    const tpl8 = document.getElementById("tpl8_users");
+    const list = document.getElementById("ul_users");
+    list.innerHTML = "";
+    VAULT.userIds.forEach((user_id) => {
+        var clone = tpl8.content.cloneNode(true);
+        applyVar(clone, "USER_ID", user_id);
+        list.appendChild(clone);
+    });
+    Array.from(document.getElementsByClassName("toggle_user_signin")).forEach((button) => {
+        button.addEventListener("click", toggleUserLock)
+    });
+}
+
+
+async function refreshSecrets() {
+    const tpl8 = document.getElementById("tpl8_secrets");
+    const list = document.getElementById("ul_secrets");
+    list.innerHTML = "";
+    VAULT.secretIds.forEach((secret_id) => {
+        var clone = tpl8.content.cloneNode(true);
+        applyVar(clone, "SECRET_ID", secret_id);
+        list.appendChild(clone);
+    });
+}
+
+
+async function refreshVault() {
+    await Promise.all([
+        refreshUsers(),
+        refreshSecrets(),
+    ]);
 }
 
 
