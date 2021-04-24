@@ -6,13 +6,14 @@ window.VAULT = {};
 window.vault_file_id = null;
 
 
-async function apply_var(node, variable, value) {
+
+async function applyVar(node, variable, value) {
     for (let attr in node.dataset) {
         node.dataset[attr] = node.dataset[attr].replaceAll(variable, value);
     }
     if (node.childElementCount){
         Array.from(node.children).forEach((child) => {
-            apply_var(child, variable, value);
+            applyVar(child, variable, value);
         });
     } else {
         node.textContent = node.textContent.replaceAll(variable, value);
@@ -20,7 +21,7 @@ async function apply_var(node, variable, value) {
 }
 
 
-function display_app(){
+function displayApp(){
     Array.from(document.getElementsByClassName("splash")).forEach((elmt) => {
         elmt.hidden = true;
     });
@@ -30,31 +31,46 @@ function display_app(){
 }
 
 
-async function open_file_event(event) {
-    await open_file(event.toElement.dataset.fileId);
-}
-
-
-async function open_file(file_id) {
+async function openFile(file_id) {
     window.vault_file_id = file_id;
-    display_app();
+    displayApp();
     const response = await gapi.client.drive.files.get({fileId: file_id, alt: "media"})
-    window.VAULT = await SharedVault.prototype.fromJSON(response.body);
+    window.VAULT = await SharedVault.prototype.fromJSON(JSON.parse(response.body));
 }
 
 
-async function create_file() {
+async function updateFile(file_id, data) {
+    return await gapi.client.request({
+        path: "/upload/drive/v3/files/" + file_id,
+        method: "PATCH",
+        params: {
+            uploadType: "media"
+        },
+        body: data,
+    })
+}
+
+
+async function createFile() {
     const file_name = prompt("File name:", "sharedvault");
     const response = await gapi.client.drive.files.create({
         uploadType: "media", 
-        resource: {users: [], secrets: {}}, 
         name: file_name + ".vault",
+        mimeType: "application/json",
     })
-    await open_file(response.result.id);
+    await updateFile(
+        response.result.id,
+        JSON.stringify({users: [], secrets: {}}),
+    );
+    await openFile(response.result.id);
 }
 
 
-async function refresh_files() {
+async function saveFile() {
+}
+
+
+async function refreshFiles() {
     const tpl8 = document.getElementById("tpl8_files");
     const list = document.getElementById("ul_files");
     const response = await gapi.client.drive.files.list({
@@ -65,11 +81,18 @@ async function refresh_files() {
     // TODO: Put starred files first.
     response.result.files.map(async file => {
         var clone = tpl8.content.cloneNode(true);
-        apply_var(clone, "FILE_ID", file.id);
-        apply_var(clone, "FILE_NAME", file.name);
-        list.appendChild(clone);
+        applyVar(clone, "FILE_ID", file.id);
+        applyVar(clone, "FILE_NAME", file.name);
+        const node = list.appendChild(clone);
+        node.addEventListener("click", async () => {
+            await openFile(file.id);
+        });
     });
-
+    Array.from(document.getElementsByClassName("btn_open_file")).forEach((elmt) => {
+        elmt.addEventListener("click", async (event) => {
+            await openFile(event.toElement.dataset.fileId);
+        });
+    })
 }
 
 
@@ -81,5 +104,9 @@ gapi.load("client", async () => {
     });
     // TODO: Handle popup being blocked.
     await gapi.auth2.getAuthInstance().signIn();
-    await refresh_files();
+    await refreshFiles();
+    Array.from(document.getElementsByClassName("splash")).forEach((elmt) => {
+        elmt.hidden = false;
+    });
+    document.getElementById("btn_create_file").addEventListener("click", createFile);
 })

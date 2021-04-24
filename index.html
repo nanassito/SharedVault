@@ -1,29 +1,34 @@
 <html>
     <head>
         <meta charset="UTF-8">
+        <script type="module" src="app.js"></script>
     </head>
     <body>
-        <section class="splash">
-            <button id="create_file" onclick="create_file">+</button>
+        <section class="splash" hidden>
+            <button id="btn_create_file">+</button>
             <ul id="ul_files">
             </ul>
         </section>
         
         <section class="app" hidden>
-            <h1>Users</h1>
-            <ul id="ul_users">
-            </ul>
-        </section>
+            <button onclick="save_file">Save</button>
+            
+            <section>
+                <h1>Users</h1>
+                <ul id="ul_users">
+                </ul>
+            </section>
 
-        <section class="app" hidden>
-            <h1>Secrets</h1>
-            <ul id="ul_secrets">
-            </ul>
+            <section>
+                <h1>Secrets</h1>
+                <ul id="ul_secrets">
+                </ul>
+            </section>
         </section>
 
         <section id="templates" hidden>
             <template id="tpl8_files">
-                <button data-file-id="FILE_ID" onclick="open_file">FILE_NAME</button>
+                <button data-file-id="FILE_ID" class="btn_open_file">FILE_NAME</button>
             </template>
             
             <template id="tpl8_users">
@@ -37,7 +42,5 @@
                 <li>SECRET_ID</li>
             </template>
         </section>
-
-        <script type="module" src="app.js"></script>
     </body>
 </html>
