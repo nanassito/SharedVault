@@ -1,0 +1,43 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+    </head>
+    <body>
+        <section class="splash">
+            <button id="create_file" onclick="create_file">+</button>
+            <ul id="ul_files">
+            </ul>
+        </section>
+        
+        <section class="app" hidden>
+            <h1>Users</h1>
+            <ul id="ul_users">
+            </ul>
+        </section>
+
+        <section class="app" hidden>
+            <h1>Secrets</h1>
+            <ul id="ul_secrets">
+            </ul>
+        </section>
+
+        <section id="templates" hidden>
+            <template id="tpl8_files">
+                <button data-file-id="FILE_ID" onclick="open_file">FILE_NAME</button>
+            </template>
+            
+            <template id="tpl8_users">
+                <li data-user-id="USER_ID">
+                    <h2>USER_ID</h2>
+                    <button class="toogle_user_signin" data-state="locked">🔒</button>
+                </li>
+            </template>
+            
+            <template id="tpl8_secrets">
+                <li>SECRET_ID</li>
+            </template>
+        </section>
+
+        <script type="module" src="app.js"></script>
+    </body>
+</html>
