@@ -34,11 +34,25 @@ User.prototype.fromJSON = async function UserFromJSON(data) {
 
 class Secret {
     constructor(content, min_keys, keys, aes_nonce, aes_tag) {
-        this.content = content
-        this.min_keys = min_keys
-        this.keys = keys
-        this.aes_nonce = aes_nonce
-        this.aes_tag = aes_tag
+        this._content = content
+        this._min_keys = min_keys
+        this._keys = keys
+        this._aes_nonce = aes_nonce
+        this._aes_tag = aes_tag
+    }
+    
+    async toJSON() {
+        return {
+            content: this._content,
+            min_keys: this._min_keys,
+            keys: await Promise.all(
+                this._keys.map(async (key) => {
+                    return await key.armor().getReader().read();
+                })
+            ),
+            aes_nonce: this._aes_nonce,
+            aes_tag: this._aes_tag,
+        }
     }
 }
 Secret.prototype.fromJSON = async function SecretFromJSON(data) {
@@ -71,7 +85,15 @@ export class SharedVault {
                 Array.from(this._users.values())
                     .map(async (user) => {return await user.toJSON()})
             ),
-            //secrets: this._secrets.
+            secrets: Object.fromEntries(
+                await Promise.all(
+                    Array.from(VAULT._secrets.keys())
+                        .map(async (secret_id) => { 
+                            const secret_json = await VAULT._secrets.get(secret_id).toJSON();
+                            return [secret_id, secret_json];
+                        })
+                )
+            ),
         }
     }
     

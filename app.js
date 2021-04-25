@@ -3,7 +3,7 @@ import { SharedVault } from './sharedvault.js';
 
 
 window.VAULT = {};
-window.vault_file_id = null;
+window.VAULT_FILE_ID = null;
 
 
 
@@ -32,17 +32,21 @@ function displayApp() {
 
 
 async function openFile(file_id) {
-    window.vault_file_id = file_id;
-    displayApp();
+    window.VAULT_FILE_ID = file_id;
     const response = await gapi.client.drive.files.get({fileId: file_id, alt: "media"})
     const vault_json = JSON.parse(response.body);
-    window.VAULT_json = vault_json;  // DEBUG
     window.VAULT = await SharedVault.prototype.fromJSON(vault_json);
     await refreshVault();
+    displayApp();
 }
 
 
-async function saveFile(file_id, data) {
+async function safeFile() {
+    await upload(window.VAULT_FILE_ID, await VAULT.toJSON());
+}
+
+
+async function upload(file_id, data) {
     return await gapi.client.request({
         path: "/upload/drive/v3/files/" + file_id,
         method: "PATCH",
@@ -61,7 +65,7 @@ async function createFile() {
         name: file_name + ".vault",
         mimeType: "application/json",
     })
-    await saveFile(response.result.id, {users: [], secrets: {}});
+    await upload(response.result.id, {users: [], secrets: {}});
     await openFile(response.result.id);
 }
 
@@ -158,4 +162,5 @@ gapi.load("client", async () => {
         elmt.hidden = false;
     });
     document.getElementById("btn_create_file").addEventListener("click", createFile);
+    document.getElementById("btn_save_file").addEventListener("click", safeFile);
 })
