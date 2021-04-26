@@ -4,12 +4,18 @@ import { SharedVault } from './sharedvault.js';
 
 window.VAULT = {};
 window.VAULT_FILE_ID = null;
-
+const APP = document.getElementById("app");
+const TPL8S = document.getElementById("templates");
 
 
 async function applyVar(node, variable, value) {
     for (let attr in node.dataset) {
         node.dataset[attr] = node.dataset[attr].replaceAll(variable, value);
+    }
+    if (node.attributes) {
+        Array.from(node.attributes).forEach((attr) => {
+            attr.value = attr.value.replaceAll(variable, value);
+        })
     }
     if (node.childElementCount){
         Array.from(node.children).forEach((child) => {
@@ -22,12 +28,8 @@ async function applyVar(node, variable, value) {
 
 
 function displayApp() {
-    Array.from(document.getElementsByClassName("splash")).forEach((elmt) => {
-        elmt.hidden = true;
-    });
-    Array.from(document.getElementsByClassName("app")).forEach((elmt) => {
-        elmt.hidden = false;
-    });
+    document.getElementById("splash").hidden = true;
+    APP.hidden = false;
 }
 
 
@@ -71,8 +73,8 @@ async function createFile() {
 
 
 async function refreshFiles() {
-    const tpl8 = document.getElementById("tpl8_files");
-    const list = document.getElementById("ul_files");
+    const tpl8 = TPL8S.querySelector("[data-tpl8='files']");
+    const list = document.getElementById("splash").querySelector("[data-tpl8='files']");
     const response = await gapi.client.drive.files.list({
         "q": "fileExtension = 'vault' AND trashed=false",
         "pageSize": 100,
@@ -115,8 +117,8 @@ async function toggleUserLock(event) {
 
 
 async function refreshUsers() {
-    const tpl8 = document.getElementById("tpl8_users");
-    const list = document.getElementById("ul_users");
+    const tpl8 = TPL8S.querySelector("[data-tpl8='users']");
+    const list = APP.querySelector("[data-tpl8='users']");
     list.innerHTML = "";
     VAULT.userIds.forEach((user_id) => {
         var clone = tpl8.content.cloneNode(true);
@@ -130,8 +132,8 @@ async function refreshUsers() {
 
 
 async function refreshSecrets() {
-    const tpl8 = document.getElementById("tpl8_secrets");
-    const list = document.getElementById("ul_secrets");
+    const tpl8 = TPL8S.querySelector("[data-tpl8='secrets']");
+    const list = APP.querySelector("[data-tpl8='secrets']");
     list.innerHTML = "";
     VAULT.secretIds.forEach((secret_id) => {
         var clone = tpl8.content.cloneNode(true);
@@ -158,9 +160,7 @@ gapi.load("client", async () => {
     // TODO: Handle popup being blocked.
     await gapi.auth2.getAuthInstance().signIn();
     await refreshFiles();
-    Array.from(document.getElementsByClassName("splash")).forEach((elmt) => {
-        elmt.hidden = false;
-    });
+    document.getElementById("splash").hidden = false;
     document.getElementById("btn_create_file").addEventListener("click", createFile);
     document.getElementById("btn_save_file").addEventListener("click", safeFile);
 })

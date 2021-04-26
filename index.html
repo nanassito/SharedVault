@@ -4,38 +4,38 @@
         <script type="module" src="app.js"></script>
     </head>
     <body>
-        <section class="splash" hidden>
+        <section id="splash" hidden>
             <button id="btn_create_file">+</button>
-            <ul id="ul_files">
+            <ul data-tpl8="files">
             </ul>
         </section>
         
-        <section class="app" hidden>
+        <section id="app" hidden>
             <button id="btn_save_file">Save</button>
             
             <section>
                 <h1>Users</h1>
-                <ul id="ul_users">
+                <ul data-tpl8="users">
                 </ul>
             </section>
 
             <section>
                 <h1>Secrets</h1>
-                <ul id="ul_secrets">
+                <ul data-tpl8="secrets">
                 </ul>
             </section>
         </section>
 
         <section id="templates" hidden>
-            <template id="tpl8_files">
+            <template data-tpl8="files">
                 <button data-file-id="FILE_ID" class="btn_open_file">FILE_NAME</button>
             </template>
             
-            <template id="tpl8_users">
+            <template data-tpl8="users">
                 <li data-user-id="USER_ID" data-state="locked" class="toggle_user_signin">USER_ID</li>
             </template>
             
-            <template id="tpl8_secrets">
+            <template data-tpl8="secrets">
                 <li>
                     <h1>SECRET_ID</h1>
                     <form hidden>
