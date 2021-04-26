@@ -36,7 +36,24 @@
             </template>
             
             <template id="tpl8_secrets">
-                <li>SECRET_ID</li>
+                <li>
+                    <h1>SECRET_ID</h1>
+                    <form hidden>
+                        <textarea>CONTENT</textarea>
+                        <label for="min-keys">Minimum number of keys required to open?</label>
+                        <input type="number" name="min-keys" min="1" value="MIN_KEYS">
+                        <h2>Keys</h2>
+                        <ol></ol>
+                    </form>
+                </li>
+            </template>
+            
+            <template id="tpl8_keys">
+                <li><ul></ul></li>
+            </template>
+            
+            <template id="tpl8_key_owners">
+                <li>USER_ID</li>
             </template>
         </section>
     </body>

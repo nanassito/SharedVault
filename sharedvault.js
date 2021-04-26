@@ -12,6 +12,10 @@ class User {
         return this._key.getUserIds()[0];
     }
     
+    get keyId() {
+        return btoa(this._key.getKeyId().bytes);
+    }
+    
     async toJSON() {
         return this._armored;
     }
@@ -22,7 +26,7 @@ class User {
     
     async signOut() {
         this._key.clearPrivateParams();
-        // BUG: when clearing, we can't signin again, so we reload the key.
+        // BUG: when clearing, we can't sign back in anymore, so we reload the key.
         this._key = await openpgp.readKey({ armoredKey: this._armored });
     }
 }
@@ -39,6 +43,17 @@ class Secret {
         this._keys = keys
         this._aes_nonce = aes_nonce
         this._aes_tag = aes_tag
+    }
+    
+    get minKeys() {
+        return this._min_keys;
+    }
+    
+    get keysIds() {
+        return this._keys.map(key => {
+            return key.getEncryptionKeyIds()
+                .map(keyId => {return btoa(keyId.bytes);})
+        });
     }
     
     async toJSON() {
@@ -79,6 +94,15 @@ export class SharedVault {
         return Array.from(this._secrets.keys());
     }
     
+    genKeyId2UserId() {
+        return new Map(
+            Array.from(VAULT._users.entries())
+                .map(([user_id, user]) => {
+                    return [user.keyId, user_id];
+                })
+        );
+    }
+    
     async toJSON() {
         return {
             users: await Promise.all(
@@ -103,6 +127,20 @@ export class SharedVault {
     
     async signOut(user_id) {
         await this._users.get(user_id).signOut();
+    }
+    
+    async readSecret(secret_id) {
+        const secret = this._secrets.get(secret_id);
+        var is_locked = true;
+        const keyId2UserId = this.genKeyId2UserId();
+        return {
+            is_locked: is_locked,
+            content: null,
+            min_keys: secret.minKeys,
+            keys: secret.keysIds.map((keyIds) => {
+                return keyIds.map((keyId) => { return keyId2UserId.get(keyId); });
+            }),
+        }
     }
 }
 
