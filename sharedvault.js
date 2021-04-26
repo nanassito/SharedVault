@@ -62,7 +62,17 @@ class Secret {
             min_keys: this._min_keys,
             keys: await Promise.all(
                 this._keys.map(async (key) => {
-                    return await key.armor().getReader().read();
+                    const lines = [];
+                    const reader = key.armor().getReader();
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) {
+                            break;
+                        } else {
+                            lines.push(value);
+                        }
+                    }
+                    return lines.join("")
                 })
             ),
             aes_nonce: this._aes_nonce,
