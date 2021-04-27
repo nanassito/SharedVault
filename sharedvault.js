@@ -16,6 +16,10 @@ class User {
         return btoa(this._key.getKeyId().bytes);
     }
     
+    get isSignedIn() {
+        return this._key.isDecrypted();
+    }
+    
     async toJSON() {
         return this._armored;
     }
@@ -139,6 +143,10 @@ export class SharedVault {
         await this._users.get(user_id).signOut();
     }
     
+    isUserSignedIn(user_id) {
+        return this._users.get(user_id).isSignedIn;
+    }
+    
     async readSecret(secret_id) {
         const secret = this._secrets.get(secret_id);
         var is_locked = true;
@@ -152,6 +160,19 @@ export class SharedVault {
                 return keyIds.map((keyId) => { return keyId2UserId.get(keyId); });
             }),
         }
+    }
+    
+    async createUser(user_id, passphrase) {
+        if (this.userIds.includes(user_id)){ 
+            alert("Userid " + user_id + " is already taken.");
+            return;
+        }
+        const { key, privateKeyArmored } = await openpgp.generateKey({
+            userIds: [{name: user_id}],
+            passphrase: passphrase,
+        });
+        this._users.set(key.getUserIds()[0], await User.prototype.fromJSON(privateKeyArmored)); 
+        await this.signIn(user_id, passphrase);
     }
 }
 

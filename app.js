@@ -98,6 +98,13 @@ async function refreshFiles() {
 }
 
 
+async function createUser() {
+    const user_id = prompt("User id:", "Some name or identifier for the new user.");
+    await VAULT.createUser(user_id, prompt("Password?", "Enter your passphrase."));
+    await refreshUsers()
+}
+
+
 window.toggleUserLock = async function toggleUserLock(event) {
     const node = event.toElement.closest("[data-action='toggle_user_signin']");
     const user_id = node.dataset.userId;
@@ -107,13 +114,11 @@ window.toggleUserLock = async function toggleUserLock(event) {
         } catch(err) {
             alert(err);
             return;
-        }
-        node.dataset.state = "unlocked";
-    
+        }    
     } else {
         await VAULT.signOut(user_id);
-        node.dataset.state = "locked";
     }
+    await refreshUsers();
 }
 
 
@@ -124,6 +129,7 @@ async function refreshUsers() {
     VAULT.userIds.forEach((user_id) => {
         var clone = tpl8.content.cloneNode(true);
         applyVar(clone, "USER_ID", user_id);
+        applyVar(clone, "IS_LOCKED", VAULT.isUserSignedIn(user_id) ? "unlocked" : "locked" );
         list.appendChild(clone);
     });
     Array.from(document.querySelectorAll("[data-action='toggle_user_signin']")).forEach((button) => {
@@ -189,4 +195,5 @@ gapi.load("client", async () => {
     document.getElementById("splash").hidden = false;
     document.getElementById("btn_create_file").addEventListener("click", createFile);
     document.getElementById("btn_save_file").addEventListener("click", safeFile);
+    document.getElementById("btn_create_user").addEventListener("click", createUser);
 })
