@@ -99,19 +99,20 @@ async function refreshFiles() {
 
 
 window.toggleUserLock = async function toggleUserLock(event) {
-    const user_id = event.toElement.dataset.userId;
-    if (event.toElement.dataset.state === "locked"){
+    const node = event.toElement.closest("[data-action='toggle_user_signin']");
+    const user_id = node.dataset.userId;
+    if (node.dataset.state === "locked"){
         try {
             await VAULT.signIn(user_id, prompt("Password?", "Enter your passphrase."));
         } catch(err) {
             alert(err);
             return;
         }
-        event.toElement.dataset.state = "unlocked";
+        node.dataset.state = "unlocked";
     
     } else {
         await VAULT.signOut(user_id);
-        event.toElement.dataset.state = "locked";
+        node.dataset.state = "locked";
     }
 }
 
@@ -131,13 +132,21 @@ async function refreshUsers() {
 }
 
 
+function toggleSecretDetails() {
+    const node = event.toElement.closest("[data-action='toggle_secret_details']");
+    Array.from(node.querySelectorAll("[data-toggle-secret-details]")).forEach((node) => {
+        node.hidden = !node.hidden;
+    });
+}
+
+
 async function refreshSecrets() {
     const tpl8_secret = TPL8S.querySelector("[data-tpl8='secrets']");
     const tpl8_key = TPL8S.querySelector("[data-tpl8='keys']");
     const tpl8_key_owner = TPL8S.querySelector("[data-tpl8='key_owners']");
     const ul_secrets = APP.querySelector("[data-tpl8='secrets']");
     ul_secrets.innerHTML = "";
-    VAULT.secretIds.forEach(async (secret_id) => {
+    await Promise.all(VAULT.secretIds.map(async (secret_id) => {
         const secret = await VAULT.readSecret(secret_id);
         var node_secret = tpl8_secret.content.cloneNode(true);
         secret.keys.forEach((key) => {
@@ -153,6 +162,9 @@ async function refreshSecrets() {
         applyVar(node_secret, "CONTENT", secret.content);
         applyVar(node_secret, "MIN_KEYS", secret.min_keys);
         ul_secrets.appendChild(node_secret);
+    }));
+    Array.from(APP.querySelectorAll("[data-action='toggle_secret_details']")).forEach((button) => {
+        button.addEventListener("click", toggleSecretDetails)
     });
 }
 

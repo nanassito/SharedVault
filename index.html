@@ -32,13 +32,13 @@
             </template>
             
             <template data-tpl8="users">
-                <li><a href="#" data-user-id="USER_ID" data-state="locked" data-action="toggle_user_signin">USER_ID</a></li>
+                <li data-user-id="USER_ID" data-state="locked" data-action="toggle_user_signin"><a href="#">USER_ID</a></li>
             </template>
             
             <template data-tpl8="secrets">
-                <li><a href="#">
+                <li data-action="toggle_secret_details"><a href="#">
                     <h1>SECRET_ID</h1>
-                    <form hidden>
+                    <form hidden data-toggle-secret-details>
                         <textarea>CONTENT</textarea>
                         <label for="min-keys">Minimum number of keys required to open?</label>
                         <input type="number" name="min-keys" min="1" value="MIN_KEYS">
