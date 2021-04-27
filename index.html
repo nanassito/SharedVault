@@ -28,15 +28,15 @@
 
         <section id="templates" hidden>
             <template data-tpl8="files">
-                <button data-file-id="FILE_ID" class="btn_open_file">FILE_NAME</button>
+                <button data-file-id="FILE_ID" data-action="btn_open_file">FILE_NAME</button>
             </template>
             
             <template data-tpl8="users">
-                <li data-user-id="USER_ID" data-state="locked" class="toggle_user_signin">USER_ID</li>
+                <li><a href="#" data-user-id="USER_ID" data-state="locked" data-action="toggle_user_signin">USER_ID</a></li>
             </template>
             
             <template data-tpl8="secrets">
-                <li>
+                <li><a href="#">
                     <h1>SECRET_ID</h1>
                     <form hidden>
                         <textarea>CONTENT</textarea>
@@ -45,7 +45,7 @@
                         <h2>Keys</h2>
                         <ol data-tpl8="keys"></ol>
                     </form>
-                </li>
+                </a></li>
             </template>
             
             <template data-tpl8="keys">

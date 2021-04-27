@@ -90,7 +90,7 @@ async function refreshFiles() {
             await openFile(file.id);
         });
     });
-    Array.from(document.getElementsByClassName("btn_open_file")).forEach((elmt) => {
+    Array.from(document.querySelectorAll("[data-action='btn_open_file']")).forEach((elmt) => {
         elmt.addEventListener("click", async (event) => {
             await openFile(event.toElement.dataset.fileId);
         });
@@ -98,7 +98,7 @@ async function refreshFiles() {
 }
 
 
-async function toggleUserLock(event) {
+window.toggleUserLock = async function toggleUserLock(event) {
     const user_id = event.toElement.dataset.userId;
     if (event.toElement.dataset.state === "locked"){
         try {
@@ -125,7 +125,7 @@ async function refreshUsers() {
         applyVar(clone, "USER_ID", user_id);
         list.appendChild(clone);
     });
-    Array.from(document.getElementsByClassName("toggle_user_signin")).forEach((button) => {
+    Array.from(document.querySelectorAll("[data-action='toggle_user_signin']")).forEach((button) => {
         button.addEventListener("click", toggleUserLock)
     });
 }
