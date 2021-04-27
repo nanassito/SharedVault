@@ -43,16 +43,16 @@
                         <label for="min-keys">Minimum number of keys required to open?</label>
                         <input type="number" name="min-keys" min="1" value="MIN_KEYS">
                         <h2>Keys</h2>
-                        <ol></ol>
+                        <ol data-tpl8="keys"></ol>
                     </form>
                 </li>
             </template>
             
-            <template id="tpl8_keys">
-                <li><ul></ul></li>
+            <template data-tpl8="keys">
+                <li><ul data-tpl8="key_owners"></ul></li>
             </template>
             
-            <template id="tpl8_key_owners">
+            <template data-tpl8="key_owners">
                 <li>USER_ID</li>
             </template>
         </section>

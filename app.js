@@ -132,13 +132,27 @@ async function refreshUsers() {
 
 
 async function refreshSecrets() {
-    const tpl8 = TPL8S.querySelector("[data-tpl8='secrets']");
-    const list = APP.querySelector("[data-tpl8='secrets']");
-    list.innerHTML = "";
-    VAULT.secretIds.forEach((secret_id) => {
-        var clone = tpl8.content.cloneNode(true);
-        applyVar(clone, "SECRET_ID", secret_id);
-        list.appendChild(clone);
+    const tpl8_secret = TPL8S.querySelector("[data-tpl8='secrets']");
+    const tpl8_key = TPL8S.querySelector("[data-tpl8='keys']");
+    const tpl8_key_owner = TPL8S.querySelector("[data-tpl8='key_owners']");
+    const ul_secrets = APP.querySelector("[data-tpl8='secrets']");
+    ul_secrets.innerHTML = "";
+    VAULT.secretIds.forEach(async (secret_id) => {
+        const secret = await VAULT.readSecret(secret_id);
+        var node_secret = tpl8_secret.content.cloneNode(true);
+        secret.keys.forEach((key) => {
+            const node_key = tpl8_key.content.cloneNode(true);
+            key.forEach((key_owner) => {
+                const node_key_owner = tpl8_key_owner.content.cloneNode(true);
+                applyVar(node_key_owner, "USER_ID", key_owner);
+                node_key.querySelector("[data-tpl8='key_owners']").appendChild(node_key_owner);
+            });
+            node_secret.querySelector("[data-tpl8='keys']").appendChild(node_key);
+        });
+        applyVar(node_secret, "SECRET_ID", secret_id);
+        applyVar(node_secret, "CONTENT", secret.content);
+        applyVar(node_secret, "MIN_KEYS", secret.min_keys);
+        ul_secrets.appendChild(node_secret);
     });
 }
 

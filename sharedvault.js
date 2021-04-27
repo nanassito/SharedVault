@@ -142,10 +142,11 @@ export class SharedVault {
     async readSecret(secret_id) {
         const secret = this._secrets.get(secret_id);
         var is_locked = true;
+        var content = "";
         const keyId2UserId = this.genKeyId2UserId();
         return {
             is_locked: is_locked,
-            content: null,
+            content: content,
             min_keys: secret.minKeys,
             keys: secret.keysIds.map((keyIds) => {
                 return keyIds.map((keyId) => { return keyId2UserId.get(keyId); });
