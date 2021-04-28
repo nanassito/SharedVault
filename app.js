@@ -138,23 +138,15 @@ async function refreshUsers() {
 }
 
 
-function toggleSecretDetails() {
+async function toggleSecretDetails() {
     const node = event.toElement.closest("[data-action='toggle_secret_details']");
-    Array.from(node.querySelectorAll("[data-toggle-secret-details]")).forEach((node) => {
-        node.hidden = !node.hidden;
-    });
-}
-
-
-async function refreshSecrets() {
-    const tpl8_secret = TPL8S.querySelector("[data-tpl8='secrets']");
-    const tpl8_key = TPL8S.querySelector("[data-tpl8='keys']");
-    const tpl8_key_owner = TPL8S.querySelector("[data-tpl8='key_owners']");
-    const ul_secrets = APP.querySelector("[data-tpl8='secrets']");
-    ul_secrets.innerHTML = "";
-    await Promise.all(VAULT.secretIds.map(async (secret_id) => {
+    if (node.dataset.state === "collapsed") {
+        node.dataset.state = "expanded";
+        const tpl8_key = TPL8S.querySelector("[data-tpl8='keys']");
+        const tpl8_key_owner = TPL8S.querySelector("[data-tpl8='key_owners']");
+        const node_details = TPL8S.querySelector("[data-tpl8='secret_details']").content.cloneNode(true);
+        const secret_id = node.dataset.secretId;
         const secret = await VAULT.readSecret(secret_id);
-        var node_secret = tpl8_secret.content.cloneNode(true);
         secret.keys.forEach((key) => {
             const node_key = tpl8_key.content.cloneNode(true);
             key.forEach((key_owner) => {
@@ -162,11 +154,26 @@ async function refreshSecrets() {
                 applyVar(node_key_owner, "USER_ID", key_owner);
                 node_key.querySelector("[data-tpl8='key_owners']").appendChild(node_key_owner);
             });
-            node_secret.querySelector("[data-tpl8='keys']").appendChild(node_key);
+            node_details.querySelector("[data-tpl8='keys']").appendChild(node_key);
         });
+        applyVar(node_details, "SECRET_ID", secret_id);
+        applyVar(node_details, "CONTENT", secret.content);
+        applyVar(node_details, "MIN_KEYS", secret.min_keys);
+        node.querySelector("[data-tpl8='secret_details']").appendChild(node_details);
+    } else {
+        node.dataset.state = "collapsed";
+        node.querySelector("[data-tpl8='secret_details']").innerHTML = "";
+    }
+}
+
+
+async function refreshSecrets() {
+    const tpl8_secret = TPL8S.querySelector("[data-tpl8='secrets']");
+    const ul_secrets = APP.querySelector("[data-tpl8='secrets']");
+    ul_secrets.innerHTML = "";
+    await Promise.all(VAULT.secretIds.map(async (secret_id) => {
+        var node_secret = tpl8_secret.content.cloneNode(true);
         applyVar(node_secret, "SECRET_ID", secret_id);
-        applyVar(node_secret, "CONTENT", secret.content);
-        applyVar(node_secret, "MIN_KEYS", secret.min_keys);
         ul_secrets.appendChild(node_secret);
     }));
     Array.from(APP.querySelectorAll("[data-action='toggle_secret_details']")).forEach((button) => {

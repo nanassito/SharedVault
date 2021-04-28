@@ -151,6 +151,7 @@ export class SharedVault {
         const secret = this._secrets.get(secret_id);
         var is_locked = true;
         var content = "";
+        // await openpgp.decrypt({message: VAULT._secrets.get("secretA")._keys[0], privateKeys: pks})
         const keyId2UserId = this.genKeyId2UserId();
         return {
             is_locked: is_locked,
@@ -189,4 +190,8 @@ SharedVault.prototype.fromJSON = async function SharedVaultFromJSON(data) {
         secrets.set(secret_id, await Secret.prototype.fromJSON(data.secrets[secret_id]));
     }
     return new SharedVault(users, secrets);
+}
+
+window.debug = async function(){
+    console.log("breakpoint");
 }

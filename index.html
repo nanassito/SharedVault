@@ -37,16 +37,18 @@
             </template>
             
             <template data-tpl8="secrets">
-                <li data-action="toggle_secret_details"><a href="#">
-                    <h1>SECRET_ID</h1>
-                    <form hidden data-toggle-secret-details>
-                        <textarea>CONTENT</textarea>
-                        <label for="min-keys">Minimum number of keys required to open?</label>
-                        <input type="number" name="min-keys" min="1" value="MIN_KEYS">
-                        <h2>Keys</h2>
-                        <ol data-tpl8="keys"></ol>
-                    </form>
-                </a></li>
+                <li data-action="toggle_secret_details" data-secret-id="SECRET_ID" data-state="collapsed">
+                    <a href="#"><h1>SECRET_ID</h1></a>
+                    <form data-tpl8="secret_details"></form>
+                </li>
+            </template>
+            
+            <template data-tpl8="secret_details">
+                <textarea>CONTENT</textarea>
+                <label for="min-keys">Minimum number of keys required to open?</label>
+                <input type="number" name="min-keys" min="1" value="MIN_KEYS">
+                <h2>Keys</h2>
+                <ol data-tpl8="keys"></ol>
             </template>
             
             <template data-tpl8="keys">
