@@ -1,19 +1,20 @@
-import * as openpgp from "https://unpkg.com/openpgp@5.0.0-1/dist/openpgp.min.mjs";
+import * as openpgp from "https://unpkg.com/openpgp@5.0.0-2/dist/openpgp.min.mjs";
 // TODO: import crypto.js here.
+window.openpgp = openpgp;  // debug
 
 
 class User {
-    constructor(armored, key) {
-        this._armored = armored;
+    constructor(key) {
         this._key = key;
+        this._locked = key;
     }
     
     get userId() {
-        return this._key.getUserIds()[0];
+        return this._locked.getUserIDs()[0];
     }
     
     get keyId() {
-        return btoa(this._key.getKeyId().bytes);
+        return btoa(this._locked.getKeyID().bytes);
     }
     
     get isSignedIn() {
@@ -21,22 +22,23 @@ class User {
     }
     
     async toJSON() {
-        return this._armored;
+        return this._locked.armor();
     }
     
     async signIn(passphrase) {
-        await this._key.decrypt(passphrase);
+        this._key = await openpgp.decryptKey({privateKey: this._locked, passphrase: passphrase});
     }
     
     async signOut() {
-        this._key.clearPrivateParams();
-        // BUG: when clearing, we can't sign back in anymore, so we reload the key.
-        this._key = await openpgp.readKey({ armoredKey: this._armored });
+        // > this._key.clearPrivateParams();
+        // Error: Error decrypting private key:
+        // Private key is encrypted using an insecure S2K function:
+        // unsalted MD5
+        this._key = this._locked;
     }
 }
 User.prototype.fromJSON = async function UserFromJSON(data) {
-    const key = await openpgp.readKey({ armoredKey: data });
-    return new User(data, key);
+    return new User(await openpgp.readKey({armoredKey: data}));
 }
 
 
@@ -53,11 +55,8 @@ class Secret {
         return this._min_keys;
     }
     
-    get keysIds() {
-        return this._keys.map(key => {
-            return key.getEncryptionKeyIds()
-                .map(keyId => {return btoa(keyId.bytes);})
-        });
+    get totalKeys() {
+        return this._keys.length;
     }
     
     async toJSON() {
@@ -83,14 +82,22 @@ class Secret {
             aes_tag: this._aes_tag,
         }
     }
+    
+    async getKeysAsPgpMessages() {
+        return await Promise.all(this._keys.map(async (key) => {
+            return await openpgp.readMessage({armoredMessage: key});
+        }));
+    }
+    
+    async getKeysIds() {
+        return (await this.getKeysAsPgpMessages()).map(key => {
+            return key.getEncryptionKeyIDs()
+                .map(keyId => {return btoa(keyId.bytes);})
+        });
+    }
 }
 Secret.prototype.fromJSON = async function SecretFromJSON(data) {
-    const keys = await Promise.all(
-        data.keys.map(async key => {
-            return await openpgp.readMessage({ armoredMessage: key });
-        })
-    );
-    return new Secret(data.content, data.min_keys, keys, data.aes_nonce, data.aes_tag)
+    return new Secret(data.content, data.min_keys, Array.from(data.keys), data.aes_nonce, data.aes_tag)
 }
 
 
@@ -149,15 +156,26 @@ export class SharedVault {
     
     async readSecret(secret_id) {
         const secret = this._secrets.get(secret_id);
-        var is_locked = true;
+        const private_keys = []
+        this._users.forEach((user, user_id) => {
+            if (user.isSignedIn) {
+                private_keys.push(user._key);
+            }
+        });
+        const shares = [];
+        await Promise.all(
+            (await secret.getKeysAsPgpMessages()).map(async (msg) => {
+                shares.push(await openpgp.decrypt({message: msg, privateKeys: private_keys}));
+            })
+        );
         var content = "";
-        // await openpgp.decrypt({message: VAULT._secrets.get("secretA")._keys[0], privateKeys: pks})
+        var is_locked = false;
         const keyId2UserId = this.genKeyId2UserId();
         return {
             is_locked: is_locked,
             content: content,
             min_keys: secret.minKeys,
-            keys: secret.keysIds.map((keyIds) => {
+            keys: (await secret.getKeysIds()).map((keyIds) => {
                 return keyIds.map((keyId) => { return keyId2UserId.get(keyId); });
             }),
         }
@@ -169,10 +187,10 @@ export class SharedVault {
             return;
         }
         const { key, privateKeyArmored } = await openpgp.generateKey({
-            userIds: [{name: user_id}],
+            userIDs: [{name: user_id}],
             passphrase: passphrase,
         });
-        this._users.set(key.getUserIds()[0], await User.prototype.fromJSON(privateKeyArmored)); 
+        this._users.set(key.getUserIDs()[0], await User.prototype.fromJSON(privateKeyArmored)); 
         await this.signIn(user_id, passphrase);
     }
 }
